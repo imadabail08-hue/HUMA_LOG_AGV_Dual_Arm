@@ -12,10 +12,25 @@ L'application simule le flux logistique complet : prise de carton sur convoyeur 
 
 ---
 
+## 📸 Aperçu & Supervision 3D en Temps Réel
+
+| Station Hot-Swap Automatique (Inspiration Walker S2) | Navigation Holonome & Évitement Piéton (LiDAR) |
+| :---: | :---: |
+| ![Station Hot-Swap Walker S2](docs/images/01_hotswap_battery_station.jpg) | ![Évitement Piéton Allée 90cm](docs/images/02_obstacle_avoidance_navigation.jpg) |
+| **Accostage automatique & échange de pack 12V sans coupure** (relais instantané par bus tampon LiFePO4). | **Détection LiDAR 360° et arrêt sécurisé** face à un opérateur dans l'allée centrale de 90 cm. |
+
+| Prise sur Convoyeur d'Entrée (Zone A) | Dépose Multi-Niveaux Rayonnages (Zone B) |
+| :---: | :---: |
+| ![Prise Convoyeur Zone A](docs/images/04_zone_a_conveyor_infeed.jpg) | ![Dépose Étagères Zone B](docs/images/03_zone_b_shelving_storage.jpg) |
+| **Préhension sous vide (-45 kPa)** par buse ventouse avec décodage optique caméra HD. | **Synchronisation de l'axe vertical Z (torse)** et dépose en alvéoles cibles (30, 70 et 110 cm). |
+
+---
+
 ## 📑 Sommaire
-1. [Lancement Rapide](#1-lancement-rapide)
-2. [Architecture du Code](#2-architecture-du-code)
-3. [Modélisation Robotique & Physique](#3-modélisation-robotique--physique)
+1. [Aperçu & Supervision 3D en Temps Réel](#-aperçu--supervision-3d-en-temps-réel)
+2. [Lancement Rapide](#1-lancement-rapide)
+3. [Architecture du Code](#2-architecture-du-code)
+4. [Modélisation Robotique & Physique](#3-modélisation-robotique--physique)
    - [Base mobile Mecanum 4WD](#31-base-mobile-mecanum-4wd)
    - [Axe vertical Z (Torse télescopique)](#32-axe-vertical-z-torse-télescopique)
    - [Deux bras 5-DDL & Cinématique Inverse (IK)](#33-deux-bras-5-ddl--cinématique-inverse-ik)
