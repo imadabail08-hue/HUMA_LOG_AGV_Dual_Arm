@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HUMA-LOG — Jumeau Numérique AGV Bi-Bras & Hot-Swap</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+
+  <!-- Import map pour Three.js ES Modules via CDN fixe (aucun build requis) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --bg-dark: #0a0f1d;
+      --panel-bg: rgba(15, 23, 42, 0.94);
+      --card-bg: #1e293b;
+      --primary-blue: #0284c7;
+      --accent-cyan: #00d2ff;
+      --safety-yellow: #facc15;
+      --danger-red: #ef4444;
+      --success-green: #00e676;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      user-select: none;
+    }
+
+    /* Conteneur 3D plein écran */
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Panneau latéral de supervision HMI */
+    #ui-container {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 440px;
+      height: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border-left: 1px solid var(--border-color);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -4px 0 25px rgba(0, 0, 0, 0.6);
+    }
+
+    /* En-tête HMI */
+    .hmi-header {
+      padding: 14px 18px;
+      background: #0f172a;
+      border-bottom: 2px solid var(--primary-blue);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hmi-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-badge {
+      background: var(--primary-blue);
+      color: #fff;
+      font-weight: 900;
+      font-size: 16px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+
+    .brand-sub {
+      color: var(--safety-yellow);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .brand-desc {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .header-status {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+    }
+
+    .dot-green { background: var(--success-green); box-shadow: 0 0 8px var(--success-green); }
+    .dot-orange { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+    .dot-red { background: var(--danger-red); box-shadow: 0 0 8px var(--danger-red); animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .btn-estop {
+      background: #dc2626;
+      color: #fff;
+      border: 2px solid #ef4444;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-estop:hover {
+      background: #b91c1c;
+      transform: scale(1.03);
+    }
+
+    .btn-estop.active {
+      background: #16a34a;
+      border-color: #22c55e;
+    }
+
+    /* Barre supérieure de caméras & vitesse */
+    .cam-bar {
+      padding: 8px 12px;
+      background: #1e293b;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .bar-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-right: 2px;
+    }
+
+    .bar-separator {
+      width: 1px;
+      height: 16px;
+      background: var(--border-color);
+      margin: 0 4px;
+    }
+
+    .btn-cam, .btn-speed {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .btn-cam:hover, .btn-speed:hover {
+      color: #fff;
+      border-color: var(--primary-blue);
+    }
+
+    .btn-cam.active, .btn-speed.active {
+      background: var(--primary-blue);
+      color: #fff;
+      border-color: var(--accent-cyan);
+      font-weight: bold;
+    }
+
+    /* Onglets de navigation */
+    .panel-tabs {
+      display: flex;
+      background: #0f172a;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--text-muted);
+      padding: 10px 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-cyan);
+      border-bottom-color: var(--accent-cyan);
+      background: rgba(0, 210, 255, 0.05);
+    }
+
+    /* Zone de contenu déroulante */
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .tab-pane {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .tab-pane.active {
+      display: flex;
+    }
+
+    /* Cartes de widgets */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: #f1f5f9;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 6px;
+    }
+
+    /* Badges */
+    .fsm-badge {
+      background: #0284c7;
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-buffer {
+      background: #334155;
+      color: #cbd5e1;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    .badge-buffer.active {
+      background: #0284c7;
+      color: #fff;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.6);
+      animation: pulse 1.2s infinite;
+    }
+
+    /* FSM Timeline */
+    .fsm-timeline {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+
+    .fsm-step {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 6px 4px;
+      font-size: 10px;
+      text-align: center;
+      color: var(--text-muted);
+      transition: 0.2s;
+    }
+
+    .fsm-step.active {
+      background: var(--primary-blue);
+      color: #fff;
+      font-weight: bold;
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 8px rgba(2, 132, 199, 0.6);
+    }
+
+    /* Jauge batterie */
+    .battery-gauge-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .battery-bar-bg {
+      width: 100%;
+      height: 12px;
+      background: #0f172a;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .battery-bar-fill {
+      height: 100%;
+      background: var(--success-green);
+      transition: width 0.3s ease, background-color 0.3s ease;
+    }
+
+    .battery-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+
+    /* Grille télémétrique */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .tele-item {
+      background: #0f172a;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .tele-lbl {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .tele-val {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      font-family: "SF Mono", Monaco, Consolas, monospace;
+    }
+
+    /* Boutons standards */
+    .btn {
+      padding: 8px 14px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: 0.15s;
+    }
+
+    .btn-primary {
+      background: var(--primary-blue);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: #f1f5f9;
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
+    }
+
+    .btn-fault {
+      background: #7f1d1d;
+      color: #fecaca;
+      border: 1px solid #991b1b;
+      padding: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn-fault:hover {
+      background: #991b1b;
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    /* Sliders de réglage */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slider-group label {
+      font-size: 11px;
+      color: #cbd5e1;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .slider-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary-blue);
+      cursor: pointer;
+    }
+
+    /* Journal de log */
+    .log-container {
+      max-height: 120px;
+      overflow-y: auto;
+      background: #0f172a;
+      padding: 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .log-line {
+      line-height: 1.3;
+    }
+
+    .log-time { color: #64748b; }
+    .log-from { color: #f59e0b; }
+    .log-to { color: var(--accent-cyan); font-weight: bold; }
+    .log-reason { color: #94a3b8; }
+
+    /* Tableau comparatif */
+    .benchmark-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .benchmark-table th {
+      text-align: left;
+      padding: 6px 4px;
+      border-bottom: 2px solid var(--border-color);
+      color: var(--text-muted);
+    }
+
+    .benchmark-table td {
+      padding: 6px 4px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Scrollbars personnalisées */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body>
+  <!-- Conteneur WebGL 3D -->
+  <div id="canvas-container"></div>
+
+  <!-- Panneau latéral Supervision & Contrôle HMI -->
+  <div id="ui-container"></div>
+
+  <!-- Script d'amorce ES Module -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
+
